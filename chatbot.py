@@ -23,24 +23,24 @@ genai.configure(api_key=api_key)
 class Chatbot:
     def __init__(self):
         self.generation_config = {
-            "temperature": 1,
-            "top_p": 0.95,
-            "top_k": 64,
-            "max_output_tokens": 8192,
+            "temperature": 0.9,
+            "top_p": 1,
+            "top_k": 1,
+            "max_output_tokens": 2048,
         }
         self.model = genai.GenerativeModel(
-            model_name="gemini-1.5-pro-exp-0827",
+            model_name="gemini-1.5-pro-latest",
             generation_config=self.generation_config,
         )
         self.chat_session = self.model.start_chat(
             history=[
                 {
                     "role": "user",
-                    "parts": ["You are a world-class video ads and creative analyzer"],
+                    "parts": ["You are a world-class video ads and creative analyzer. You can analyze both text and video content."],
                 },
                 {
                     "role": "model",
-                    "parts": ["I'm Your World-Class Video Ads & Creative Analyzer! I'm ready to analyze video ads and provide insights to improve their effectiveness. How can I assist you today?"],
+                    "parts": ["Understood. As a world-class video ads and creative analyzer, I'm ready to provide expert insights on both text and video content. My analysis will cover various aspects such as audience engagement, messaging effectiveness, visual and audio elements, brand consistency, and platform optimization. Whether you have a specific question about an ad or need a comprehensive analysis of a video, I'm here to help. What would you like me to analyze today?"],
                 },
             ]
         )
@@ -53,7 +53,7 @@ class Chatbot:
             logger.error(f"Error sending message: {str(e)}")
             return "I apologize, but there was an error processing your request. Please try again."
 
-    def analyze_video(self, video_path):
+    def analyze_video(self, video_path, prompt=''):
         try:
             logger.info(f"Uploading video file: {video_path}")
             video_file = genai.upload_file(video_path)
@@ -67,9 +67,11 @@ class Chatbot:
                 raise ValueError(f"Video processing failed: {video_file.state.name}")
 
             logger.info("Video processing complete. Generating analysis...")
-            prompt = "Analyze this video advertisement. Provide insights on its effectiveness, target audience, key messages, and areas for improvement. Include a comprehensive analysis of audience engagement, messaging & storytelling, visual & audio elements, brand consistency, and platform optimization."
+            default_prompt = "Analyze this video advertisement. Provide insights on its effectiveness, target audience, key messages, and areas for improvement. Include a comprehensive analysis of audience engagement, messaging & storytelling, visual & audio elements, brand consistency, and platform optimization."
             
-            response = self.model.generate_content([video_file, prompt], request_options={"timeout": 300})
+            full_prompt = f"{default_prompt}\n\nAdditional instructions: {prompt}" if prompt else default_prompt
+            
+            response = self.model.generate_content([video_file, full_prompt], request_options={"timeout": 300})
             return response.text
         except Exception as e:
             logger.error(f"Error analyzing video: {str(e)}")

@@ -13,52 +13,49 @@
             <div id="chat-messages" class="mb-4 h-96 overflow-y-auto"></div>
             <div class="flex flex-col space-y-2">
                 <div class="flex space-x-2">
-                    <input type="text" id="user-input" class="flex-grow border rounded px-4 py-2" placeholder="Type your message or upload a video...">
+                    <input type="text" id="user-input" class="flex-grow border rounded px-4 py-2" placeholder="Type your message...">
+                    <input type="file" id="video-file" accept="video/*" class="hidden">
+                    <button onclick="document.getElementById('video-file').click()" class="bg-gray-500 text-white px-4 py-2 rounded">Choose Video</button>
                     <button onclick="sendMessage()" class="bg-blue-500 text-white px-4 py-2 rounded">Send</button>
                 </div>
-                <div class="flex space-x-2">
-                    <input type="file" id="video-file" accept="video/*" class="flex-grow">
-                    <button onclick="uploadVideo()" class="bg-green-500 text-white px-4 py-2 rounded">Upload Video</button>
-                </div>
+                <div id="selected-file" class="text-sm text-gray-600"></div>
             </div>
         </div>
     </div>
     <script>
+        let selectedVideo = null;
+
+        document.getElementById('video-file').addEventListener('change', function(event) {
+            selectedVideo = event.target.files[0];
+            document.getElementById('selected-file').textContent = selectedVideo ? `Selected video: ${selectedVideo.name}` : '';
+        });
+
         function sendMessage() {
             const userInput = document.getElementById('user-input');
             const message = userInput.value.trim();
-            if (message) {
-                appendMessage('You', message);
+            
+            if (message || selectedVideo) {
+                const formData = new FormData();
+                formData.append('message', message);
+                if (selectedVideo) {
+                    formData.append('video', selectedVideo);
+                }
+
+                appendMessage('You', message || `Analyzing video: ${selectedVideo.name}`);
+
                 fetch('/send_message', {
                     method: 'POST',
-                    headers: {
-                        'Content-Type': 'application/json',
-                    },
-                    body: JSON.stringify({ message: message }),
+                    body: formData
                 })
                 .then(response => response.json())
                 .then(data => {
                     appendMessage('Chatbot', data.response);
                 });
+
                 userInput.value = '';
-            }
-        }
-
-        function uploadVideo() {
-            const videoFile = document.getElementById('video-file').files[0];
-            if (videoFile) {
-                appendMessage('You', `Uploading video: ${videoFile.name}`);
-                const formData = new FormData();
-                formData.append('video', videoFile);
-
-                fetch('/analyze_video', {
-                    method: 'POST',
-                    body: formData,
-                })
-                .then(response => response.json())
-                .then(data => {
-                    appendMessage('Chatbot', `Video Analysis: ${data.response}`);
-                });
+                selectedVideo = null;
+                document.getElementById('video-file').value = '';
+                document.getElementById('selected-file').textContent = '';
             }
         }
 
