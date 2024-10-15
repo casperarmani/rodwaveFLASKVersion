@@ -1,12 +1,24 @@
 import os
+import time
+import logging
 import google.generativeai as genai
 from dotenv import load_dotenv
+
+# Set up logging
+logging.basicConfig(level=logging.INFO)
+logger = logging.getLogger(__name__)
 
 # Load environment variables
 load_dotenv()
 
+# Get the API key
+api_key = os.getenv("GEMINI_API_KEY")
+
+if not api_key:
+    raise ValueError("No GEMINI_API_KEY found in environment variables. Please set it in your .env file.")
+
 # Configure the generative AI
-genai.configure(api_key=os.getenv("GEMINI_API_KEY"))
+genai.configure(api_key=api_key)
 
 class Chatbot:
     def __init__(self):
@@ -17,14 +29,14 @@ class Chatbot:
             "max_output_tokens": 8192,
         }
         self.model = genai.GenerativeModel(
-            model_name="gemini-1.5-pro",
+            model_name="gemini-1.5-pro-exp-0827",
             generation_config=self.generation_config,
         )
         self.chat_session = self.model.start_chat(
             history=[
                 {
                     "role": "user",
-                    "parts": ["you are a world class video ads and creative analyzer"],
+                    "parts": ["You are a world-class video ads and creative analyzer"],
                 },
                 {
                     "role": "model",
@@ -34,28 +46,31 @@ class Chatbot:
         )
 
     def send_message(self, message):
-        response = self.chat_session.send_message(message)
-        return response.text
-
-    def analyze_video(self, video_path, prompt):
         try:
-            print("Uploading video file...")
-            video_file = genai.upload_file(video_path)
-            
-            print("Waiting for video processing...")
-            while video_file.state.name == "PROCESSING":
-                video_file = genai.get_file(video_file.name)
-            
-            if video_file.state.name != "ACTIVE":
-                raise ValueError(f"Video processing failed: {video_file.state.name}")
-            
-            print("Making LLM inference request...")
-            response = self.model.generate_content(
-                contents=[prompt, video_file],
-                stream=True
-            )
-            response.resolve()
+            response = self.chat_session.send_message(message)
             return response.text
         except Exception as e:
-            print(f"Error analyzing video: {str(e)}")
-            return None
+            logger.error(f"Error sending message: {str(e)}")
+            return "I apologize, but there was an error processing your request. Please try again."
+
+    def analyze_video(self, video_path):
+        try:
+            logger.info(f"Uploading video file: {video_path}")
+            video_file = genai.upload_file(video_path)
+            
+            logger.info("Waiting for video processing...")
+            while video_file.state.name == "PROCESSING":
+                time.sleep(5)
+                video_file = genai.get_file(video_file.name)
+
+            if video_file.state.name == "FAILED":
+                raise ValueError(f"Video processing failed: {video_file.state.name}")
+
+            logger.info("Video processing complete. Generating analysis...")
+            prompt = "Analyze this video advertisement. Provide insights on its effectiveness, target audience, key messages, and areas for improvement. Include a comprehensive analysis of audience engagement, messaging & storytelling, visual & audio elements, brand consistency, and platform optimization."
+            
+            response = self.model.generate_content([video_file, prompt], request_options={"timeout": 300})
+            return response.text
+        except Exception as e:
+            logger.error(f"Error analyzing video: {str(e)}")
+            return f"An error occurred during video analysis: {str(e)}"

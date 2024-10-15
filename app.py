@@ -17,8 +17,12 @@ def send_message():
 
 @app.route('/analyze_video', methods=['POST'])
 def analyze_video():
+    if 'video' not in request.files:
+        return jsonify({'response': 'No video file uploaded'})
+    
     video_file = request.files['video']
-    prompt = request.form['prompt']
+    if video_file.filename == '':
+        return jsonify({'response': 'No video file selected'})
     
     # Save the uploaded file temporarily
     video_path = os.path.join('temp', video_file.filename)
@@ -26,7 +30,7 @@ def analyze_video():
     video_file.save(video_path)
     
     # Analyze the video
-    analysis_result = chatbot.analyze_video(video_path, prompt)
+    analysis_result = chatbot.analyze_video(video_path)
     
     # Remove the temporary file
     os.remove(video_path)
