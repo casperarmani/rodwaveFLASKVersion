@@ -30,7 +30,7 @@
             document.getElementById('selected-file').textContent = selectedVideo ? `Selected video: ${selectedVideo.name}` : '';
         });
 
-        function sendMessage() {
+        async function sendMessage() {
             const userInput = document.getElementById('user-input');
             const message = userInput.value.trim();
             
@@ -43,14 +43,17 @@
 
                 appendMessage('You', message || `Analyzing video: ${selectedVideo.name}`);
 
-                fetch('/send_message', {
-                    method: 'POST',
-                    body: formData
-                })
-                .then(response => response.json())
-                .then(data => {
+                try {
+                    const response = await fetch('/send_message', {
+                        method: 'POST',
+                        body: formData
+                    });
+                    const data = await response.json();
                     appendMessage('Chatbot', data.response);
-                });
+                } catch (error) {
+                    console.error('Error:', error);
+                    appendMessage('Chatbot', 'An error occurred while processing your request.');
+                }
 
                 userInput.value = '';
                 selectedVideo = null;

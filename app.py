@@ -1,24 +1,32 @@
 import os
-from flask import Flask, render_template, request, jsonify
+from fastapi import FastAPI, File, Form, UploadFile
+from fastapi.responses import HTMLResponse
+from fastapi.staticfiles import StaticFiles
 from chatbot import Chatbot
 
-app = Flask(__name__)
+app = FastAPI()
 chatbot = Chatbot()
 
-@app.route('/')
-def index():
-    return render_template('index.html')
+# Create static directory if it doesn't exist
+static_dir = os.path.join(os.path.dirname(__file__), "static")
+os.makedirs(static_dir, exist_ok=True)
 
-@app.route('/send_message', methods=['POST'])
-def send_message():
-    message = request.form.get('message', '')
-    video_file = request.files.get('video')
+# Mount static files
+app.mount("/static", StaticFiles(directory=static_dir), name="static")
 
-    if video_file:
+@app.get("/", response_class=HTMLResponse)
+async def index():
+    with open("templates/index.html", "r") as f:
+        return f.read()
+
+@app.post("/send_message")
+async def send_message(message: str = Form(""), video: UploadFile = File(None)):
+    if video:
         # Save the uploaded file temporarily
-        video_path = os.path.join('temp', video_file.filename)
+        video_path = os.path.join('temp', video.filename)
         os.makedirs('temp', exist_ok=True)
-        video_file.save(video_path)
+        with open(video_path, "wb") as buffer:
+            buffer.write(await video.read())
         
         # Analyze the video
         analysis_result = chatbot.analyze_video(video_path, message)
@@ -26,11 +34,12 @@ def send_message():
         # Remove the temporary file
         os.remove(video_path)
         
-        return jsonify({'response': analysis_result})
+        return {"response": analysis_result}
     else:
         # Handle text-only message
         response = chatbot.send_message(message)
-        return jsonify({'response': response})
+        return {"response": response}
 
 if __name__ == '__main__':
-    app.run(debug=True)
+    import uvicorn
+    uvicorn.run(app, host="0.0.0.0", port=8000)
